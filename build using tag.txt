@@ -1,0 +1,54 @@
+pipeline {
+    agent any
+    tools {
+        maven 'MAVEN_HOME'
+        jdk 'JAVA_HOME'
+    }
+    
+    parameters {
+        string(name: 'TAG_TO_BUILD', description: 'Enter the tag to build')
+    }
+    
+    stages {
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        // stage('User Input') {
+        //     steps {
+        //         script {
+        //             // Prompt user for input and store in TAG_TO_BUILD environment variable
+        //             env.TAG_TO_BUILD = input(message: 'Enter the tag to build:', parameters: [string(description: 'Tag to build', name: 'TAG_TO_BUILD')])
+        //         }
+        //     }
+        // }
+
+        stage('Git Clone') {
+            steps {
+                checkout([$class: 'GitSCM', branches: [[name: "refs/tags/${TAG_TO_BUILD}"]], userRemoteConfigs: [[url: 'https://github.com/Naveenkumark22/Docker-Integration.git']]])
+            }
+        }
+
+        stage('Maven Build') {
+            steps {
+                script {
+                    bat 'mvn clean install'
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                script {
+                    def dockerfileUrl = 'https://raw.githubusercontent.com/Naveenkumark22/DockerFileRepo/main/Dockerfile'
+                    def imageName = 'docrepo:latest'
+
+                    // Pull the Dockerfile from the repository
+                    docker.build(imageName, "-f ${dockerfileUrl} .")
+                }
+            }
+        }
+    }
+}

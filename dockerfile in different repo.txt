@@ -1,0 +1,48 @@
+pipeline {
+    agent any
+    tools {
+        maven 'MAVEN_HOME'
+        jdk 'JAVA_HOME'
+    }
+    stages {
+        stage('clean workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+        stage('git clone') {
+            steps {
+                git 'https://github.com/Naveenkumark22/Dockerfile-Repo.git', branch: 'main', credentialsId: 'your-git-credentials'
+                // Replace 'https://github.com/Naveenkumark22/Dockerfile-Repo.git' with the URL of your Dockerfile repository
+            }
+        }
+        stage('application code clone') {
+            steps {
+                git 'https://github.com/Naveenkumark22/Docker-Integration.git', branch: 'main', credentialsId: 'your-git-credentials'
+                // Replace 'https://github.com/Naveenkumark22/Docker-Integration.git' with the URL of your application code repository
+            }
+        }
+        stage('maven build') {
+            steps {
+                script {
+                    bat 'mvn clean install'
+                }
+            }
+        }
+        stage('docker build') {
+            steps {
+                script {
+                    // Assuming your Dockerfile is in the Jenkins workspace
+                    def dockerImage = docker.build('naveen:latest', '-f Dockerfile-Repo/Dockerfile .')
+                }
+            }
+        }
+        stage('clean up dangling') {
+            steps {
+                script {
+                    bat 'docker system prune -f'
+                }
+            }
+        }
+    }
+}

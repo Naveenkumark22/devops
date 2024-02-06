@@ -1,0 +1,51 @@
+pipeline {
+    agent any
+    tools {
+        maven 'MAVEN_HOME'
+        jdk 'JAVA_HOME'
+    }
+    stages{
+     stage('clean workspace'){
+            steps{
+                cleanWs()
+            }
+        }
+        stage('git clone') {
+            steps {
+                git 'https://github.com/Naveenkumark22/Docker-Integration.git'
+            }
+        }
+        // clone repository if need we can use this repo
+        // stage('Clone Repository') {
+        //     steps {
+        //         checkout([$class: 'GitSCM', branches: [[name: 'master']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[url: 'REPO_URL']]])
+        //     }
+        
+        stage('maven build') {
+            steps {
+                script {
+                    bat 'mvn clean install'
+                }
+            }
+        }
+        stage('docker build') {
+            steps {
+                
+                git 'https://github.com/Naveenkumark22/DockerFileRepo.git'
+                // Replace 'https://github.com/Naveenkumark22/Dockerfile-Repo.git' with the URL of your Dockerfile repository
+          
+                script {
+                    def dockerfileUrl = 'https://raw.githubusercontent.com/Naveenkumark22/DockerFileRepo/main/Dockerfile'
+                    def imageName = 'docrepo:latest'
+
+                    // Pull the Dockerfile from the repository
+                    docker.build(imageName, "-f ${dockerfileUrl} .")
+                    // Assuming your Dockerfile is in the Jenkins workspace
+                  //  def dockerImage = docker.build('docrepo:latest', '-f https://github.com/Naveenkumark22/DockerFileRepo.git/Dockerfile .')
+                }
+            }
+        }
+         
+    }
+}
+

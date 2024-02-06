@@ -1,0 +1,52 @@
+Run command
+
+docker run <imagename>
+
+-------------
+
+pull
+
+docker pull <imagename>
+
+-----------------
+
+list conatiners
+
+docker ps
+
+docker ps-a ---->shows us all the containers, stopped or running
+docker ps-l------>shows us the latest container.
+docker ps-q------>shows only the Id of the containers.
+
+
+----------------------
+
+stop container
+
+docker stop <containername>
+
+
+----------
+
+start container
+
+docker start <contaiener id>
+
+----------------------------
+
+remove container
+
+
+docker rm {options} <container_name or ID>
+
+options
+-f flag: remove the container forcefully.
+-v flag: remove the volumes.
+-l flag: remove the specific link mentioned.
+
+
+--------------------------
+
+remove images
+
+docker rmi <image ID/ image name>
