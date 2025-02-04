@@ -1,0 +1,127 @@
+pipeline {
+    agent any  // Specifies that the pipeline can run on any available agent.
+
+    environment {
+        REGISTRY = 'artifactory.int.bell.ca'
+        REPO_URL = 'https://gitlab.int.bell.ca/sst/cpm/bbm/sda/sda.git'
+        BRANCH = "tags/${BUILD_ID}"
+        IMAGE_NAME = "sst-cpm-docker-virtual.artifactory.int.bell.ca/cpm/sda:${BUILD_NUMBER}.0.0"
+		ARTIFACTORY_URL = 'https://your-artifactory-instance/artifactory'
+        ARTIFACTORY_REPO = 'your-repository-name'
+        ARTIFACTORY_USER = 'your-username'
+        ARTIFACTORY_PASSWORD = 'your-password' // It's better to use Jenkins credentials here
+        IMAGE_NAME = 'your-image-name'
+        IMAGE_TAG = 'latest'
+
+    }
+
+    parameters {
+        string(name: 'BUILD_ID', defaultValue: '', description: 'Build ID - Tag')
+        choice(name: 'ENVIRONMENT', choices: ['uatw', 'uatd', 'uat1w', 'uat1d'], description: 'Select environment')
+    }
+
+    stages {
+        stage('Cleanup Workspace') {
+            steps {
+                cleanWs()  // Cleans the workspace before starting the build.
+            }
+        }
+
+        stage('Checkout Source Code') {
+            steps {
+                script {
+                    // Clones the Git repository into the Jenkins workspace.
+                    checkout([$class: 'GitSCM',
+                        branches: [[name: BRANCH]],
+                        userRemoteConfigs: [[url: REPO_URL, credentialsId: 'CPM DevOps Functional ID']]
+                    ])
+                }
+            }
+        }
+
+        stage('Build Project with Maven') {
+            steps {
+                script {
+                    // Runs Maven clean and package to build the project.
+                    sh 'mvn -f sda/pom.xml clean package'
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    sh """
+                        cp sda/target/SDA-1.0.0.jar sda-openshift/SDA-1.0.0.jar
+                        docker build -t ${IMAGE_NAME} $WORKSPACE/sda-openshift
+                    """
+					//sh "docker build -t ${DOCKER_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} -f Dockerfile ." 
+
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    // Pushes the built Docker image to the registry.
+                    withDockerRegistry([credentialsId: 'fidcpm_devops', url: REGISTRY]) {
+                        sh "docker push ${IMAGE_NAME}"
+                    }
+                }
+            }
+        }
+    }
+
+-----------------------------------------------------------
+
+
+        stage('Authenticate to Artifactory') {
+            steps {
+                script {
+                    // Login to Artifactory
+                    sh "docker login -u ${ARTIFACTORY_USER} -p ${ARTIFACTORY_PASSWORD} ${ARTIFACTORY_URL}"
+                }
+            }
+        }
+
+        stage('Tag Docker Image') {
+            steps {
+                script {
+                    // Tag the image with the Artifactory repository URL
+                    sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${ARTIFACTORY_URL}/${ARTIFACTORY_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
+					//${IMAGE_NAME}:${IMAGE_TAG} --name given tag this to  this name ${ARTIFACTORY_URL}/${ARTIFACTORY_REPO}/${IMAGE_NAME}:${IMAGE_TAG}
+//docker tag backend-service:1.2.3 https://my-artifactory.company.com/artifactory/docker-repo/backend-service:1.2.3
+
+			   }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    // Push the image to Artifactory
+                    sh "docker push ${ARTIFACTORY_URL}/${ARTIFACTORY_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
+                }
+            }
+        }
+
+
+        stage('Push to JFrog') {
+            steps {
+                sh "docker push ${JFROG_REGISTRY}/${DOCKER_REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
+            }
+        }
+		Before tagging, your image might be called my-app:latest.
+After tagging, it will be called artifactory.example.com/docker-repo/my-app:latest, which is the name required to push it to your Artifactory instance.
+
+----------------------------------------------------------------------------------------
+    post {
+        success {
+            echo 'Build and deployment successful!'  // Prints success message.
+        }
+        failure {
+            echo 'Build failed!'  // Prints failure message if the build fails.
+        }
+    }
+}
